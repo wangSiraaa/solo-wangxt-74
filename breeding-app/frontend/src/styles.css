@@ -1,0 +1,77 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  background: #f5f7f4;
+  color: #243026;
+}
+.app { max-width: 1180px; margin: 0 auto; padding: 0 16px 60px; }
+header {
+  display: flex; align-items: baseline; gap: 24px; flex-wrap: wrap;
+  border-bottom: 2px solid #3d6b4f; padding: 14px 0; margin-bottom: 18px;
+}
+h1 { font-size: 20px; margin: 0; color: #2c5238; }
+h1 small { font-weight: normal; color: #7a8a7e; font-size: 12px; }
+nav { display: flex; gap: 6px; }
+nav button {
+  border: 1px solid #3d6b4f; background: #fff; color: #2c5238;
+  padding: 6px 16px; border-radius: 16px; cursor: pointer; font-size: 14px;
+}
+nav button.active { background: #3d6b4f; color: #fff; }
+h2 { color: #2c5238; font-size: 18px; }
+h3 { color: #2c5238; font-size: 15px; margin-top: 0; }
+
+table { border-collapse: collapse; width: 100%; background: #fff; margin: 12px 0; }
+th, td { border: 1px solid #dde5de; padding: 6px 10px; font-size: 13px; text-align: left; }
+th { background: #eef3ee; color: #2c5238; }
+code { background: #eef3ee; padding: 1px 5px; border-radius: 4px; }
+
+button {
+  background: #3d6b4f; color: #fff; border: none; border-radius: 6px;
+  padding: 5px 12px; cursor: pointer; font-size: 13px;
+}
+button:hover { background: #2c5238; }
+input, select {
+  border: 1px solid #c4d0c6; border-radius: 6px; padding: 6px 8px; font-size: 13px;
+}
+.inline-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.inline-form label { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+.card {
+  background: #fff; border: 1px solid #dde5de; border-radius: 10px;
+  padding: 14px 16px; margin: 12px 0;
+}
+.hint { color: #7a8a7e; font-size: 12px; margin: 6px 0; }
+.msg { color: #2c5238; background: #e2efe5; padding: 8px 12px; border-radius: 6px; }
+.error { color: #8c2f2f; background: #f7e3e3; padding: 8px 12px; border-radius: 6px; }
+
+.badge {
+  display: inline-block; padding: 1px 8px; border-radius: 10px;
+  font-size: 12px; margin-left: 6px;
+}
+.badge.measured { background: #e2efe5; color: #2c5238; }
+.badge.missing { background: #fdf0dc; color: #8a6d1d; }
+.badge.dead { background: #f7e3e3; color: #8c2f2f; }
+.badge.dup { background: #e3ecf7; color: #2f4d8c; }
+
+.focus-node { font-weight: bold; color: #2c5238; }
+.tree, .tree ul { list-style: none; }
+.tree li { margin: 4px 0; padding-left: 14px; border-left: 2px solid #c4d0c6; }
+.edge-wrap { display: contents; }
+.pedigree { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .pedigree { grid-template-columns: 1fr; } }
+
+.drawer-mask {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 10;
+}
+.drawer {
+  position: absolute; right: 0; top: 0; bottom: 0; width: min(760px, 92vw);
+  background: #fff; padding: 20px 24px; overflow-y: auto;
+  box-shadow: -4px 0 18px rgba(0,0,0,.2);
+}
+.drawer .close {
+  position: absolute; top: 12px; right: 14px; background: none;
+  color: #7a8a7e; font-size: 22px; padding: 0 6px;
+}
+.close-inline { float: right; font-size: 12px; background: #7a8a7e; }
+.backfill input { width: 90px; margin-right: 4px; }
+.backfill button { margin-right: 4px; padding: 3px 8px; font-size: 12px; }

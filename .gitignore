@@ -1,0 +1,17 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local development/runtime data
+*.sqlite
+*.sqlite3
+breeding.db
+__pycache__/
+.pytest_cache/
+
+# JavaScript dependencies and build caches
+node_modules/
+.vite/
