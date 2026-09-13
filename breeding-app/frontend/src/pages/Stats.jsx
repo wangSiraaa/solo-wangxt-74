@@ -33,10 +33,18 @@ export default function StatsPage({ onTrace }) {
       .then(setStats).catch((e) => setErr(e.message))
   }, [trialId, trait])
 
-  const showFamily = async (code) => {
+  const showFamily = async (eventCodes) => {
     setErr('')
-    try { setFamilyDetail(await api.get(`/matings/${code}`)) }
-    catch (e) { setErr(e.message) }
+    try {
+      // 一个家系可能由同亲本组合的多个交配事件组成
+      const details = await Promise.all(
+        eventCodes.map((c) => api.get(`/matings/${c}`)),
+      )
+      setFamilyDetail({
+        codes: eventCodes,
+        offspring: details.flatMap((d) => d.offspring),
+      })
+    } catch (e) { setErr(e.message) }
   }
 
   const fmt = (v) => (v === null || v === undefined ? '—' : Number(v).toFixed(2))
@@ -83,7 +91,7 @@ export default function StatsPage({ onTrace }) {
                 <td>{f.n_dead > 0 && <span className="badge dead">{f.n_dead}</span>}{f.n_dead === 0 && 0}</td>
                 <td>{f.n_true_zero}</td>
                 <td>{f.replicates.map((r) => `R${r.replicate}=${fmt(r.mean)}`).join('，')}</td>
-                <td><button onClick={() => showFamily(f.family_code)}>查看后代</button></td>
+                <td><button onClick={() => showFamily(f.event_codes)}>查看后代</button></td>
               </tr>
             ))}
           </tbody>
@@ -93,10 +101,7 @@ export default function StatsPage({ onTrace }) {
       {familyDetail && (
         <div className="card">
           <h3>
-            家系 {familyDetail.code}：{familyDetail.female.name}（{familyDetail.female.code}）
-            {familyDetail.type === 'SELF'
-              ? ' 自交'
-              : ` × ${familyDetail.male ? `${familyDetail.male.name}（${familyDetail.male.code}）` : '未知父本'}`}
+            家系后代（事件 {familyDetail.codes.join('、')}）
             <button className="close-inline" onClick={() => setFamilyDetail(null)}>收起</button>
           </h3>
           <table>

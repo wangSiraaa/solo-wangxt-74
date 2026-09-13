@@ -1,20 +1,38 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 
-/** 材料列表：同名材料靠稳定编号区分；可登记基础材料。 */
+/** 材料列表：同名材料靠稳定编号区分；可登记基础材料、做人工淘汰/保留决定。 */
 export default function GermplasmPage({ onTrace }) {
   const [items, setItems] = useState([])
+  const [decisions, setDecisions] = useState({})
+  const [decider, setDecider] = useState('')
   const [search, setSearch] = useState('')
   const [name, setName] = useState('')
   const [generation, setGeneration] = useState(0)
   const [notes, setNotes] = useState('')
   const [msg, setMsg] = useState('')
 
-  const load = () =>
+  const load = () => {
     api.get(`/germplasm${search ? `?search=${encodeURIComponent(search)}` : ''}`)
       .then(setItems).catch((e) => setMsg(e.message))
+    api.get('/decisions').then((ds) => {
+      setDecisions(Object.fromEntries(ds.map((d) => [d.germplasm_code, d])))
+    }).catch((e) => setMsg(e.message))
+  }
 
   useEffect(() => { load() }, []) // eslint-disable-line
+
+  const decide = async (code, decision) => {
+    setMsg('')
+    if (!decider.trim()) { setMsg('请先填写决定人'); return }
+    try {
+      await api.put(`/decisions/${code}`, {
+        decision, decided_by: decider.trim(), note: '',
+      })
+      setMsg(`${code} 已标记为${decision === 'KEPT' ? '保留' : '淘汰'}（人工决定，自动流程不会改动）`)
+      load()
+    } catch (e) { setMsg(e.message) }
+  }
 
   const nameCounts = items.reduce((m, g) => {
     m[g.name] = (m[g.name] || 0) + 1
@@ -49,11 +67,13 @@ export default function GermplasmPage({ onTrace }) {
         <input placeholder="按名称或编号搜索" value={search}
                onChange={(e) => setSearch(e.target.value)} />
         <button onClick={load}>搜索</button>
+        <input placeholder="决定人（淘汰/保留前必填）" value={decider}
+               onChange={(e) => setDecider(e.target.value)} />
       </div>
       {msg && <p className="msg">{msg}</p>}
       <table>
         <thead>
-          <tr><th>稳定编号</th><th>名称</th><th>世代</th><th>备注</th><th></th></tr>
+          <tr><th>稳定编号</th><th>名称</th><th>世代</th><th>备注</th><th>人工决定</th><th></th></tr>
         </thead>
         <tbody>
           {items.map((g) => (
@@ -67,6 +87,19 @@ export default function GermplasmPage({ onTrace }) {
               </td>
               <td>{g.generation}</td>
               <td>{g.notes}</td>
+              <td>
+                {decisions[g.code] ? (
+                  <span className={`badge ${decisions[g.code].decision.toLowerCase()}`}>
+                    {decisions[g.code].decision === 'KEPT' ? '保留' : '淘汰'}
+                    （{decisions[g.code].decided_by}）
+                  </span>
+                ) : (
+                  <>
+                    <button onClick={() => decide(g.code, 'KEPT')}>保留</button>{' '}
+                    <button onClick={() => decide(g.code, 'CULLED')}>淘汰</button>
+                  </>
+                )}
+              </td>
               <td><button onClick={() => onTrace(g.code)}>回溯</button></td>
             </tr>
           ))}

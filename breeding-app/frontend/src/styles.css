@@ -52,6 +52,14 @@ input, select {
 .badge.missing { background: #fdf0dc; color: #8a6d1d; }
 .badge.dead { background: #f7e3e3; color: #8c2f2f; }
 .badge.dup { background: #e3ecf7; color: #2f4d8c; }
+.badge.rev-draft { background: #fdf0dc; color: #8a6d1d; }
+.badge.rev-confirmed { background: #e2efe5; color: #2c5238; }
+.badge.rev-rejected { background: #f7e3e3; color: #8c2f2f; }
+.badge.rev-superseded { background: #ececec; color: #666; }
+.badge.rev-pending { background: #fdf0dc; color: #8a6d1d; }
+.badge.rev-approved { background: #e2efe5; color: #2c5238; }
+.badge.kept { background: #e2efe5; color: #2c5238; }
+.badge.culled { background: #f7e3e3; color: #8c2f2f; }
 
 .focus-node { font-weight: bold; color: #2c5238; }
 .tree, .tree ul { list-style: none; }

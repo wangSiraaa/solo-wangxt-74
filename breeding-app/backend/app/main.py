@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import engine
 from .models import Base
-from .routers import germplasm, matings, observations, stats, trials
+from .routers import decisions, germplasm, matings, observations, results, revisions, stats, trials
 
 
 @asynccontextmanager
@@ -41,6 +41,9 @@ app.include_router(matings.router)
 app.include_router(trials.router)
 app.include_router(observations.router)
 app.include_router(stats.router)
+app.include_router(revisions.router)
+app.include_router(results.router)
+app.include_router(decisions.router)
 
 
 @app.get("/api/health")

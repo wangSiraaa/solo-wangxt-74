@@ -12,11 +12,16 @@ from sqlalchemy.orm import Session
 
 from .codes import next_code
 from .models import (
+    DecisionType,
     Germplasm,
     MatingEvent,
     MatingType,
     ObsStatus,
+    ParentageRevision,
+    ParentField,
     Progeny,
+    PublishedResult,
+    SelectionDecision,
     TraitObservation,
     Trial,
     TrialPlot,
@@ -152,6 +157,49 @@ def seed_if_empty(session: Session) -> bool:
     late.value = 3.2
     late.source = "考种补录-赵"
     late.backfilled = True
+
+    # ---- 已发布结果（旧家系口径，保留版本）----
+    from .stats import family_stats
+
+    session.add(
+        PublishedResult(
+            trial_id=trial.id,
+            trait="株高cm",
+            version=1,
+            payload=family_stats(session, trial.id, "株高cm"),
+            published_by="王老师",
+        )
+    )
+
+    # ---- 人工淘汰/保留决定（自动流程不得改动）----
+    bc1_1 = session.scalars(
+        select(Germplasm).where(Germplasm.name == "蓝穗BC1-1")
+    ).one()
+    session.add(
+        SelectionDecision(
+            germplasm_id=f2_1.id, decision=DecisionType.KEPT,
+            decided_by="李老师", note="株型紧凑，留种",
+        )
+    )
+    session.add(
+        SelectionDecision(
+            germplasm_id=bc1_1.id, decision=DecisionType.CULLED,
+            decided_by="李老师", note="感病重，淘汰",
+        )
+    )
+
+    # ---- 一个待处理的亲本修订草案（父本记录存疑）----
+    session.add(
+        ParentageRevision(
+            code=next_code(session, ParentageRevision, "RV"),
+            mating_event_id=e1.id,
+            field=ParentField.MALE,
+            old_parent_id=a2.id,
+            new_parent_id=a4.id,
+            evidence="授粉标签照片#2024-117：父本疑似抗病优系，非早熟优系",
+            proposer="李",
+        )
+    )
 
     session.commit()
     return True

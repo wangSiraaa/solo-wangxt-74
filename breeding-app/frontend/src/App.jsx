@@ -4,6 +4,7 @@ import MatingsPage from './pages/Matings.jsx'
 import PedigreePage from './pages/Pedigree.jsx'
 import TrialsPage from './pages/Trials.jsx'
 import StatsPage from './pages/Stats.jsx'
+import RevisionsPage from './pages/Revisions.jsx'
 import TracePanel from './components/TracePanel.jsx'
 
 const TABS = [
@@ -12,6 +13,7 @@ const TABS = [
   ['matings', '交配'],
   ['pedigree', '谱系'],
   ['trials', '试验小区'],
+  ['revisions', '亲本修订'],
 ]
 
 export default function App() {
@@ -42,6 +44,7 @@ export default function App() {
         {tab === 'matings' && <MatingsPage />}
         {tab === 'pedigree' && <PedigreePage onTrace={openTrace} />}
         {tab === 'trials' && <TrialsPage />}
+        {tab === 'revisions' && <RevisionsPage />}
       </main>
       {traceCode && (
         <TracePanel code={traceCode} onClose={() => setTraceCode(null)} />

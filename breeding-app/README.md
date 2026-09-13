@@ -39,7 +39,25 @@ python -m pytest tests/ -q
 ```
 
 覆盖：混合世代交配、谱系成环拒绝、同名材料编号区分、未知父本不伪造、
-标签丢失观测、观测补录留痕、同株多次测定不作独立重复、真实零值/未测/死亡区分。
+标签丢失观测、观测补录留痕、同株多次测定不作独立重复、真实零值/未测/死亡区分；
+亲本修订的证据与确认人、矛盾草案、多支后代与改名后的影响分析、
+循环/未知来源阻止（指出路径）、重分组只移动不复制、发布版本保留与人工决定不变。
+
+## 亲本修订工作流（授粉记录纠错）
+
+原交配事件**永不被覆盖**；修订走独立记录：
+
+1. **草案（DRAFT）**：登记 `事件 + 字段(母/父) + 新亲本 + 证据 + 提出人`；
+   草案不影响谱系与统计，可查看影响分析（谱系受影响后代 / 家系统计受影响后代分别列出）。
+2. **确认（CONFIRMED）**：必须证据非空、确认人 ≠ 提出人；
+   存在相互矛盾的草案时双方都不能确认（须先驳回其一）；
+   若会造成世代循环或后代来源未知，阻止生效并指出路径（如 `GM-0006 → GM-0008 → GM-0010`）。
+3. **生效后**：谱系与家系统计按“现行亲本”重算；同字段旧修订转为 SUPERSEDED（历史保留）。
+4. **发布与重算**：已发布结果是不可变版本；修订生效自动形成**待确认的重算**，
+   人工批准才成为新发布版本，驳回则旧版本继续有效；
+   人工淘汰/保留决定任何自动流程都不得改动。
+5. **重分组口径**：家系=现行亲本组合；修订只把对应小区的观测移动到新分组，
+   不复制数据、不增加样本量；证据不足的亲本不会成为确定结论。
 
 ## 核心数据规则
 
@@ -63,11 +81,16 @@ python -m pytest tests/ -q
 
 ## 主要 API
 
-- `POST /api/germplasm` 登记基础材料；`GET /api/germplasm/{code}/pedigree|trace` 谱系与回溯
+- `POST /api/germplasm` 登记基础材料；`PATCH /api/germplasm/{code}` 改名（编号不变）
+- `GET /api/germplasm/{code}/pedigree|trace` 谱系与回溯（含原始/现行亲本与修订留痕）
 - `POST /api/matings` 登记交配（可带新后代名称或挂接已有材料编号）
 - `POST /api/trials`、`POST /api/trials/{id}/plots` 试验与小区
 - `POST /api/observations`、`PATCH /api/observations/{id}` 观测录入与补录
-- `GET /api/stats/trial/{id}/families?trait=…` 家系统计
+- `GET /api/stats/trial/{id}/families?trait=…` 家系统计（现行亲本分组）
+- `POST /api/revisions`、`POST /api/revisions/{code}/confirm|reject` 亲本修订
+- `POST /api/trials/{id}/publish`、`GET /api/trials/{id}/publications` 发布版本
+- `GET /api/recalc`、`POST /api/recalc/{code}/approve|reject` 待确认重算
+- `PUT /api/decisions/{code}`、`GET /api/decisions` 人工淘汰/保留决定
 
 ## 目录
 

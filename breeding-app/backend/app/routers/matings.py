@@ -11,6 +11,7 @@ from ..models import Germplasm, MatingEvent, MatingType, Progeny
 from ..pedigree import (
     PedigreeError,
     assert_can_attach,
+    effective_parents,
     known_parent_ids,
     validate_event_parents,
 )
@@ -19,18 +20,25 @@ from ..schemas import MatingCreate
 router = APIRouter(prefix="/api/matings", tags=["matings"])
 
 
-def _event_out(e: MatingEvent) -> dict:
+def _brief(g: Germplasm | None) -> dict | None:
+    return {"code": g.code, "name": g.name} if g is not None else None
+
+
+def _event_out(e: MatingEvent, session: Session) -> dict:
+    eff_female_id, eff_male_id = effective_parents(session, e)
+    eff_female = session.get(Germplasm, eff_female_id) if eff_female_id else None
+    eff_male = session.get(Germplasm, eff_male_id) if eff_male_id else None
     return {
         "code": e.code,
         "type": e.type.value,
         "season": e.season,
         "notes": e.notes,
-        "female": {"code": e.female_parent.code, "name": e.female_parent.name},
-        "male": (
-            {"code": e.male_parent.code, "name": e.male_parent.name}
-            if e.male_parent is not None
-            else None
-        ),
+        # 原始记录（永不被覆盖）
+        "female": _brief(e.female_parent),
+        "male": _brief(e.male_parent),
+        # 现行亲本（原始记录 + 已确认修订）
+        "female_effective": _brief(eff_female),
+        "male_effective": _brief(eff_male),
         "offspring": [
             {"code": l.germplasm.code, "name": l.germplasm.name,
              "generation": l.germplasm.generation}
@@ -42,7 +50,7 @@ def _event_out(e: MatingEvent) -> dict:
 @router.get("")
 def list_matings(session: Session = Depends(get_session)) -> list[dict]:
     events = session.scalars(select(MatingEvent).order_by(MatingEvent.code)).all()
-    return [_event_out(e) for e in events]
+    return [_event_out(e, session) for e in events]
 
 
 @router.post("", status_code=201)
@@ -117,7 +125,7 @@ def create_mating(
 
     session.commit()
     session.refresh(event)
-    return _event_out(event)
+    return _event_out(event, session)
 
 
 @router.get("/{code}")
@@ -127,4 +135,4 @@ def mating_detail(code: str, session: Session = Depends(get_session)) -> dict:
     ).first()
     if event is None:
         raise HTTPException(404, f"交配事件 {code} 不存在")
-    return _event_out(event)
+    return _event_out(event, session)

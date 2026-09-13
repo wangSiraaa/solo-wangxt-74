@@ -7,9 +7,17 @@ from sqlalchemy.orm import Session
 
 from ..codes import next_code
 from ..database import get_session
-from ..models import Germplasm, MatingEvent, Progeny, TraitObservation, TrialPlot, Trial
-from ..pedigree import ancestors, build_graph, descendants
-from ..schemas import GermplasmCreate
+from ..models import (
+    Germplasm,
+    MatingEvent,
+    ParentageRevision,
+    Progeny,
+    TraitObservation,
+    TrialPlot,
+    Trial,
+)
+from ..pedigree import ancestors, build_graph, descendants, effective_parents
+from ..schemas import GermplasmCreate, GermplasmRename
 
 router = APIRouter(prefix="/api/germplasm", tags=["germplasm"])
 
@@ -29,6 +37,13 @@ def _get_by_code(session: Session, code: str) -> Germplasm:
     if g is None:
         raise HTTPException(404, f"材料 {code} 不存在")
     return g
+
+
+def _parent_ref(session: Session, pid: int | None) -> dict | None:
+    if pid is None:
+        return None
+    g = session.get(Germplasm, pid)
+    return {"code": g.code, "name": g.name} if g else None
 
 
 @router.get("")
@@ -68,6 +83,17 @@ def germplasm_detail(code: str, session: Session = Depends(get_session)) -> dict
     ).first()
     out["origin_event"] = link.mating_event.code if link else None
     return out
+
+
+@router.patch("/{code}")
+def rename_germplasm(
+    code: str, body: GermplasmRename, session: Session = Depends(get_session)
+) -> dict:
+    """改名：名称可变，稳定编号与谱系身份不变。"""
+    g = _get_by_code(session, code)
+    g.name = body.name
+    session.commit()
+    return _out(g)
 
 
 @router.get("/{code}/pedigree")
@@ -126,16 +152,41 @@ def trace(code: str, session: Session = Depends(get_session)) -> dict:
             for l in event.progeny_links
             if l.germplasm_id != g.id
         ]
+        # 现行亲本（原始记录 + 已确认修订）；原始记录一并返回，不被覆盖
+        eff_female_id, eff_male_id = effective_parents(session, event)
+        revisions = session.scalars(
+            select(ParentageRevision)
+            .where(ParentageRevision.mating_event_id == event.id)
+            .order_by(ParentageRevision.code)
+        ).all()
         origin = {
             "event_code": event.code,
             "type": event.type.value,
             "season": event.season,
-            "female": {"code": event.female_parent.code, "name": event.female_parent.name},
-            "male": (
+            "female": _parent_ref(session, eff_female_id),
+            "male": _parent_ref(session, eff_male_id),
+            "female_original": {
+                "code": event.female_parent.code,
+                "name": event.female_parent.name,
+            },
+            "male_original": (
                 {"code": event.male_parent.code, "name": event.male_parent.name}
                 if event.male_parent is not None
                 else None  # 未知父本：如实返回空，不伪造
             ),
+            "revisions": [
+                {
+                    "code": r.code,
+                    "field": r.field.value,
+                    "old_parent": _parent_ref(session, r.old_parent_id),
+                    "new_parent": _parent_ref(session, r.new_parent_id),
+                    "status": r.status.value,
+                    "evidence": r.evidence,
+                    "proposer": r.proposer,
+                    "confirmer": r.confirmer,
+                }
+                for r in revisions
+            ],
             "siblings": siblings,
         }
 

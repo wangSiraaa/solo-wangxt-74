@@ -5,7 +5,7 @@ from datetime import date
 
 from pydantic import BaseModel, Field, model_validator
 
-from .models import MatingType, ObsStatus
+from .models import DecisionType, MatingType, ObsStatus, ParentField
 
 
 class GermplasmCreate(BaseModel):
@@ -75,3 +75,42 @@ class ObservationUpdate(BaseModel):
         if self.status in (ObsStatus.MISSING, ObsStatus.DEAD) and self.value is not None:
             raise ValueError("未测/死亡观测不能带数值")
         return self
+
+
+class GermplasmRename(BaseModel):
+    """改名：名称可变，稳定编号不变，谱系身份不受影响。"""
+
+    name: str = Field(min_length=1, max_length=120)
+
+
+class RevisionCreate(BaseModel):
+    """亲本修订草案。new_parent_code 留空表示修订为“未知”。"""
+
+    event_code: str
+    field: ParentField
+    new_parent_code: str | None = None
+    evidence: str = ""          # 证据（确认时必填）
+    proposer: str = Field(min_length=1)  # 提出人
+
+
+class RevisionConfirm(BaseModel):
+    confirmer: str = Field(min_length=1)  # 确认人（须 ≠ 提出人）
+
+
+class RevisionReject(BaseModel):
+    resolver: str = ""
+
+
+class PublishCreate(BaseModel):
+    trait: str = Field(min_length=1)
+    published_by: str = Field(min_length=1)
+
+
+class RecalcResolve(BaseModel):
+    resolver: str = Field(min_length=1)
+
+
+class DecisionUpsert(BaseModel):
+    decision: DecisionType
+    note: str = ""
+    decided_by: str = Field(min_length=1)

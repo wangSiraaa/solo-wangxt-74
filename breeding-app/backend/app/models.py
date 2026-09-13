@@ -15,6 +15,7 @@ import enum
 from datetime import date, datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Date,
     DateTime,
@@ -42,6 +43,29 @@ class ObsStatus(str, enum.Enum):
     MEASURED = "MEASURED"  # 已测（value 必填，0.0 是真实零值）
     MISSING = "MISSING"    # 未测（value 必空）
     DEAD = "DEAD"          # 植株死亡（value 必空）
+
+
+class ParentField(str, enum.Enum):
+    FEMALE = "FEMALE"
+    MALE = "MALE"
+
+
+class RevisionStatus(str, enum.Enum):
+    DRAFT = "DRAFT"          # 草案：不影响任何结论
+    CONFIRMED = "CONFIRMED"  # 已确认生效（有证据与确认人）
+    REJECTED = "REJECTED"    # 已驳回
+    SUPERSEDED = "SUPERSEDED"  # 被后续修订取代（保留历史）
+
+
+class RecalcStatus(str, enum.Enum):
+    PENDING = "PENDING"      # 待确认的重算
+    APPROVED = "APPROVED"    # 已批准 → 形成新发布版本
+    REJECTED = "REJECTED"    # 已驳回 → 旧发布版本继续有效
+
+
+class DecisionType(str, enum.Enum):
+    KEPT = "KEPT"      # 保留（人工决定）
+    CULLED = "CULLED"  # 淘汰（人工决定）
 
 
 class Germplasm(Base):
@@ -162,3 +186,104 @@ class TraitObservation(Base):
 
     plot: Mapped[TrialPlot] = relationship()
     germplasm: Mapped[Germplasm | None] = relationship()
+
+
+class ParentageRevision(Base):
+    """亲本修订。原交配事件永不被覆盖；确认生效的修订形成“现行亲本”。
+
+    - 草案（DRAFT）不影响谱系与统计；
+    - 确认需要证据与确认人（且确认人 ≠ 提出人）；
+    - 同一事件的同一亲本字段，最多一个 CONFIRMED；
+      新修订确认时旧修订转为 SUPERSEDED（保留历史）。
+    """
+
+    __tablename__ = "parentage_revision"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    mating_event_id: Mapped[int] = mapped_column(ForeignKey("mating_event.id"))
+    field: Mapped[ParentField] = mapped_column(
+        Enum(ParentField, native_enum=False, length=10)
+    )
+    old_parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("germplasm.id"), nullable=True
+    )  # 起草时的现行亲本（快照）
+    new_parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("germplasm.id"), nullable=True
+    )  # NULL = 修订为未知（仅当另一亲本已知才允许生效）
+    evidence: Mapped[str] = mapped_column(Text, default="")   # 证据
+    proposer: Mapped[str] = mapped_column(String(60), default="")   # 提出人
+    confirmer: Mapped[str] = mapped_column(String(60), default="")  # 确认人
+    status: Mapped[RevisionStatus] = mapped_column(
+        Enum(RevisionStatus, native_enum=False, length=12),
+        default=RevisionStatus.DRAFT,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    mating_event: Mapped[MatingEvent] = relationship()
+    old_parent: Mapped[Germplasm | None] = relationship(
+        foreign_keys=[old_parent_id]
+    )
+    new_parent: Mapped[Germplasm | None] = relationship(
+        foreign_keys=[new_parent_id]
+    )
+
+
+class PublishedResult(Base):
+    """已发布的家系统计版本：不可变，按 (试验, 性状, 版本) 留存。"""
+
+    __tablename__ = "published_result"
+    __table_args__ = (
+        UniqueConstraint("trial_id", "trait", "version", name="uq_pub_version"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    trial_id: Mapped[int] = mapped_column(ForeignKey("trial.id"))
+    trait: Mapped[str] = mapped_column(String(60))
+    version: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[dict] = mapped_column(JSON)  # 发布时的家系统计快照
+    published_by: Mapped[str] = mapped_column(String(60), default="")
+    published_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class RecalcProposal(Base):
+    """待确认的重算：修订生效后自动形成，须人工批准才成为新发布版本。"""
+
+    __tablename__ = "recalc_proposal"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    trial_id: Mapped[int] = mapped_column(ForeignKey("trial.id"))
+    trait: Mapped[str] = mapped_column(String(60))
+    based_version: Mapped[int] = mapped_column(Integer)  # 基于哪个发布版本
+    revision_id: Mapped[int] = mapped_column(ForeignKey("parentage_revision.id"))
+    payload: Mapped[dict] = mapped_column(JSON)  # 新分组下的统计
+    status: Mapped[RecalcStatus] = mapped_column(
+        Enum(RecalcStatus, native_enum=False, length=10),
+        default=RecalcStatus.PENDING,
+    )
+    resolver: Mapped[str] = mapped_column(String(60), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    revision: Mapped[ParentageRevision] = relationship()
+
+
+class SelectionDecision(Base):
+    """人工淘汰/保留决定。任何自动流程（修订、重算）都不得改动。"""
+
+    __tablename__ = "selection_decision"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    germplasm_id: Mapped[int] = mapped_column(
+        ForeignKey("germplasm.id"), unique=True
+    )
+    decision: Mapped[DecisionType] = mapped_column(
+        Enum(DecisionType, native_enum=False, length=10)
+    )
+    note: Mapped[str] = mapped_column(Text, default="")
+    decided_by: Mapped[str] = mapped_column(String(60), default="")
+    decided_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    germplasm: Mapped[Germplasm] = relationship()
